@@ -1,0 +1,88 @@
+[oracle@apps bin]$ perl adProvisionEBS.pl ebs-update-wls-password \
+>   -contextfile=$CONTEXT_FILE \
+>   -username=weblogic \
+>   -password=weblogic1
+Invalid option ebs-update-wls-password
+Invalid Option passed ebs-update-wls-password
+
+[oracle@apps bin]$ perl /u01/install/APPS/fs1/EBSapps/appl/ad/12.0.0/patch/115/bin/adProvisionEBS.pl ebs-update-wls-password \
+>   -contextfile=$CONTEXT_FILE \
+>   -username=weblogic \
+>   -password=weblogic1
+Invalid option ebs-update-wls-password
+Invalid Option passed ebs-update-wls-password
+ChatGPT said:
+
+Ah 👍 thanks for testing — the error tells us something important:
+
+👉 Your adProvisionEBS.pl does not recognize the option ebs-update-wls-password.
+That option exists only in later ATG patches of EBS 12.2 (ATG_PF.C.Delta 11 and higher).
+If you are on an earlier codelevel, you won’t have it.
+
+✅ What to do in your case
+
+Since you changed the WebLogic password, you need to make sure all the places EBS stores it are updated manually or via AutoConfig.
+
+1. Update boot.properties
+
+Already done by you:
+
+$DOMAIN_HOME/servers/AdminServer/security/boot.properties
+$DOMAIN_HOME/servers/oacore_server1/security/boot.properties
+$DOMAIN_HOME/servers/forms_server1/security/boot.properties
+
+
+(make sure all managed servers have the correct password, not just AdminServer).
+
+2. Update Node Manager password store
+
+Check:
+
+$DOMAIN_HOME/nodemanager/nm_password.properties
+
+
+If present, update with:
+
+username=weblogic
+password=weblogic1
+
+
+Also check nodemanager.properties for any stale credentials.
+
+3. Update EBS Context File
+
+Your context file is:
+
+/u01/install/APPS/fs1/inst/apps/EBSDB_apps/appl/admin/EBSDB_apps.xml
+
+
+Search for the WebLogic password entry:
+
+grep -i weblogicPassword /u01/install/APPS/fs1/inst/apps/EBSDB_apps/appl/admin/EBSDB_apps.xml
+
+
+Update it with the new password (weblogic1).
+
+4. Run AutoConfig to propagate
+
+Once the context file has the correct value:
+
+cd /u01/install/APPS/fs1/inst/apps/EBSDB_apps/admin/scripts
+./adautocfg.sh
+
+
+This pushes the updated password into all the config files/scripts.
+
+5. Restart the stack
+adnodemgrctl.sh stop
+adnodemgrctl.sh start
+adadminsrvctl.sh start
+admanagedsrvctl.sh start <managed_server>
+adstrtal.sh apps/apps
+
+
+✅ Summary:
+
+The option ebs-update-wls-password isn’t available in your version.
+
+You must manually update boot.properties, nm_password.properties, and the EBS context file, then run adautocfg.sh to sync everything.
